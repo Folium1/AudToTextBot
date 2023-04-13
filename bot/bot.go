@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"strconv"
+	"sync"
 
 	service "tgbot/service"
 
@@ -18,11 +20,14 @@ const (
 )
 
 var (
+	mu                  sync.Mutex
+	userCallBackCh      = make(chan string)
 	allowedAudioFormats = []string{".3ga", ".8svx", ".aac", ".ac3", ".aif", ".aiff", ".alac", ".amr", ".ape", ".au", ".dss", ".flac", ".flv", ".m4a", ".m4b", ".m4p", ".m4r", ".mp3", ".mpga", ".ogg", ".oga", ".mogg", ".opus", ".qcp", ".tta", ".vocn", ".wavn", ".wma", ".wv"}
 	commandsMap         = map[string]func(*tgbotapi.BotAPI, tgbotapi.Update, *service.RedisService){
-		"/start":   handleStart,
-		"/premium": handlePremium,
-		"/list":    handleList,
+		"/start":      handleStart,
+		"/premium":    handlePremium,
+		"/list":       handleList,
+		"/getPremium": getPremium,
 	}
 )
 
@@ -61,18 +66,25 @@ func StartBot() {
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
 			for update := range updateChannel {
+
 				go handleUpdate(bot, update, redisService)
 			}
 		}()
 	}
-
 	for {
 	}
 }
 
 func handleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *service.RedisService) {
 	msg := tgbotapi.MessageConfig{}
-	msg.ChatID = update.Message.Chat.ID
+	if update.Message != nil {
+		msg.ChatID = update.Message.Chat.ID
+	}
+	if update.CallbackQuery != nil {
+		mu.Lock()
+		userCallBackCh <- update.CallbackQuery.Data
+		mu.Unlock()
+	}
 	switch {
 	case update.Message == nil:
 		return
@@ -83,9 +95,10 @@ func handleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *se
 	default:
 		if command, ok := commandsMap[update.Message.Text]; ok {
 			command(bot, update, redisService)
+		} else {
+			sendMessage(bot, update.Message.Chat.ID, "Invalid message")
 		}
 	}
-
 }
 
 // sendMessage sends a message to a chat
@@ -260,15 +273,58 @@ func handlePremium(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *s
 		bot.Send(msg)
 		return
 	}
-	msg.Text = "Payment method is currently on development stage, please try again later.Or you can contact me @Gopher_UA to get a premium"
+	msg.Text = "Payment method is currently on development stage, please try again later.Or you can contact me(@Gopher_UA) to get a premium"
 	bot.Send(msg)
 	return
 }
 
 // handleList handles the /list command
-func handleList(bot *tgbotapi.BotAPI, update tgbotapi.Update, _ *service.RedisService) {
+func handleList(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *service.RedisService) {
+
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 	msg.Text = "Here is the list of allowed formats:\n\nAudio: .mp3, .m4a, .ogg, .wav, .flac, .amr\nVoice: .ogg, .oga, .amr, .wav, .flac"
 	bot.Send(msg)
 	return
+}
+
+func getPremium(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *service.RedisService) {
+	ownerChatId, err := strconv.ParseInt(os.Getenv("OWNER_CHAT_ID"), 0, 64)
+	if err != nil {
+		log.Println("Couldn't get owner's chat id:", err)
+	}
+	if isPremium(bot, update.Message.From.ID, update.Message.Chat.ID, redisService) {
+		sendMessage(bot, update.Message.Chat.ID, "You are already a premium user!")
+		return
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Yes", "yes"),
+			tgbotapi.NewInlineKeyboardButtonData("No", "no"),
+		),
+	)
+	msg := tgbotapi.NewMessage(ownerChatId, fmt.Sprintf("Do you give this user @%v a premium? ID: %v", update.Message.From.UserName, update.Message.From.ID))
+	msg.ReplyMarkup = keyboard
+	bot.Send(msg)
+loop:
+	for {
+		select {
+		case answer := <-userCallBackCh:
+			if answer == "yes" {
+				err = redisService.SavePremiumUser(update.Message.From.ID)
+				if err != nil {
+					sendMessage(bot, update.Message.Chat.ID, "There was an error while saving you as a premium user, please contact @Gopher_UA")
+					break loop
+				}
+				sendMessage(bot, update.Message.Chat.ID, "You are now a premium user!!")
+				break loop
+			}
+			if answer == "no" {
+
+				sendMessage(bot, update.Message.Chat.ID, "Sorry, @Gopher_UA didn't allowed you to get premium")
+				break loop
+			}
+
+		}
+	}
 }
