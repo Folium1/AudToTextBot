@@ -15,34 +15,31 @@ import (
 )
 
 var (
-	TRANSCRIPT_URL = "https://api.assemblyai.com/v2/transcript"
+	transcript_url = "https://api.assemblyai.com/v2/transcript"
 )
 
-func DecodeFile(file_url string) (string, error) {
+func decodeFile(file_url string) (string, error) {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 	log.Println("Started to decode")
-	transcr := Transcribe(file_url)
-	filetext := Poll(transcr)
+	transcr := transcribe(file_url)
+	filetext := poll(transcr)
 	return filetext, nil
 }
 
-func Poll(id string) string {
+func poll(id string) string {
 	log.Println("Started Poll function")
-	API_KEY := os.Getenv("ASSEMBLY_API_KEY")
-	POLLING_URL := TRANSCRIPT_URL + "/" + id
+	asseblyApiKey := os.Getenv("ASSEMBLY_API_KEY")
+	pollingUrl := transcript_url + "/" + id
 
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", POLLING_URL, nil)
+	req, _ := http.NewRequest("GET", pollingUrl, nil)
 	req.Header.Set("content-type", "application/json")
-	req.Header.Set("authorization", API_KEY)
+	req.Header.Set("authorization", asseblyApiKey)
 	var result map[string]interface{}
 	for result["status"] != "completed" {
-		if result["status"] == "queued" {
-
-		}
 		res, err := client.Do(req)
 		if err != nil {
 			log.Fatalln(err)
@@ -54,20 +51,20 @@ func Poll(id string) string {
 
 }
 
-func Transcribe(file_url string) string {
-	var API_KEY = os.Getenv("ASSEMBLY_API_KEY")
+func transcribe(file_url string) string {
+	var asseblyApiKey = os.Getenv("ASSEMBLY_API_KEY")
 	// prepare json data
 	values := map[string]string{"audio_url": file_url}
 	jsonData, _ := json.Marshal(values)
 
 	// setup HTTP client and set header
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", TRANSCRIPT_URL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", transcript_url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		panic(err)
 	}
 	req.Header.Set("content-type", "application/json")
-	req.Header.Set("authorization", API_KEY)
+	req.Header.Set("authorization", asseblyApiKey)
 	res, err := client.Do(req)
 	if err != nil {
 		panic(err)
@@ -87,7 +84,7 @@ func Transcribe(file_url string) string {
 
 func uploadUserFileData(bot *tgbotapi.BotAPI, fileID string) (string, error) {
 	const UPLOAD_URL = "https://api.assemblyai.com/v2/upload"
-	ASSEMBLY_API_KEY := os.Getenv("ASSEMBLY_API_KEY")
+	ASSEMBLY_asseblyApiKey := os.Getenv("ASSEMBLY_API_KEY")
 	fileConfig := tgbotapi.FileConfig{
 		FileID: fileID,
 	}
@@ -96,8 +93,8 @@ func uploadUserFileData(bot *tgbotapi.BotAPI, fileID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	url := file.Link(bot.Token)
-	resp, err := http.Get(url)
+	fileUrl := file.Link(bot.Token)
+	resp, err := http.Get(fileUrl)
 	if err != nil {
 		return "", err
 	}
@@ -110,9 +107,8 @@ func uploadUserFileData(bot *tgbotapi.BotAPI, fileID string) (string, error) {
 	// Setup HTTP client and set header
 	client := &http.Client{}
 	req, _ := http.NewRequest("POST", UPLOAD_URL, bytes.NewBuffer(fileData))
-	req.Header.Set("authorization", ASSEMBLY_API_KEY)
+	req.Header.Set("authorization", ASSEMBLY_asseblyApiKey)
 	res, err := client.Do(req)
-
 	if err != nil {
 		log.Fatalln(err)
 	}

@@ -20,7 +20,7 @@ const (
 var (
 	allowedAudioFormats = []string{".3ga", ".8svx", ".aac", ".ac3", ".aif", ".aiff", ".alac", ".amr", ".ape", ".au", ".dss", ".flac", ".flv", ".m4a", ".m4b", ".m4p", ".m4r", ".mp3", ".mpga", ".ogg", ".oga", ".mogg", ".opus", ".qcp", ".tta", ".vocn", ".wavn", ".wma", ".wv"}
 	commandsMap         = map[string]func(*tgbotapi.BotAPI, tgbotapi.Update, *service.RedisService){
-		"/guide":   handleGuide,
+		"/start":   handleStart,
 		"/premium": handlePremium,
 		"/list":    handleList,
 	}
@@ -42,7 +42,6 @@ func StartBot() {
 	}
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
-
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
@@ -74,18 +73,17 @@ func StartBot() {
 func handleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *service.RedisService) {
 	msg := tgbotapi.MessageConfig{}
 	msg.ChatID = update.Message.Chat.ID
-
-	if update.Message == nil {
+	switch {
+	case update.Message == nil:
 		return
-	}
-
-	command, ok := commandsMap[update.Message.Text]
-	if ok {
-		command(bot, update, redisService)
-	} else if update.Message.Audio != nil {
+	case update.Message.Audio != nil:
 		handleAudio(bot, update, update.Message.Audio, redisService)
-	} else if update.Message.Voice != nil {
+	case update.Message.Voice != nil:
 		handleVoice(bot, update, update.Message.Voice, redisService)
+	default:
+		if command, ok := commandsMap[update.Message.Text]; ok {
+			command(bot, update, redisService)
+		}
 	}
 
 }
@@ -143,12 +141,7 @@ func isPremium(bot *tgbotapi.BotAPI, userId int, chatID int64, redisService *ser
 		sendMessage(bot, chatID, "There was an error checking if you are a premium user, please try again later")
 		return false
 	}
-
-	if !isPremium {
-		return false
-	}
-
-	return true
+	return isPremium
 }
 
 // isAudioDurationAllowed checks if audio duration is allowed for user
@@ -190,7 +183,6 @@ func decodeAudioFile(bot *tgbotapi.BotAPI, fileID string, redisService *service.
 	if err != nil {
 		log.Println(err)
 		return "", errors.New("There is an error occurred while decoding the file")
-
 	}
 	text, err := decodeFile(fileURL)
 	if err != nil {
@@ -241,7 +233,7 @@ func handleVoice(bot *tgbotapi.BotAPI, update tgbotapi.Update, voice *tgbotapi.V
 }
 
 // handleGuide handles the /guide command
-func handleGuide(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *service.RedisService) {
+func handleStart(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *service.RedisService) {
 	// Create a message config for the response
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 
@@ -260,13 +252,15 @@ func handlePremium(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *s
 	isPremium, err := redisService.IsPremium(update.Message.From.ID)
 	if err != nil {
 		log.Println(err)
+		sendMessage(bot, update.Message.Chat.ID, "There was an error checking if you are a premium user, please try again later")
+		return
 	}
 	if isPremium {
 		msg.Text = "You are already premium user!"
 		bot.Send(msg)
 		return
 	}
-	msg.Text = "Payment method is currently is on development stage, please try again later.Or you can contact me via @Gopher_UA to get a premium"
+	msg.Text = "Payment method is currently on development stage, please try again later.Or you can contact me @Gopher_UA to get a premium"
 	bot.Send(msg)
 	return
 }
