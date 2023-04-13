@@ -5,11 +5,14 @@ import (
 	"tgbot/storage"
 )
 
+const (
+	PremiumMaxTime     = 3600
+	UnpremiumMaxTime   = 480
+)
+
 var (
 	ErrUserDoesntExist = errors.New("User doesn't exist")
 	ErrMaxTimeExceeded = errors.New("Max time exceeded")
-	PremiumMaxTime     = 3600
-	UnpremiumMaxTime   = 480
 )
 
 type RedisService struct {
