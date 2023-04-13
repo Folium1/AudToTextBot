@@ -10,10 +10,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var (
-	monthDuration = 24 * time.Hour * 30
-	ctx           = context.Background()
-)
+const monthDuration = 24 * time.Hour * 30
+
+var ctx = context.Background()
 
 var RedisService interface {
 	SavePremiumUser(userId int) error
@@ -40,7 +39,7 @@ func NewStorage() (*RedisStorage, error) {
 	}, nil
 }
 
-func (r RedisStorage) GetPremiumTime(userId int) (int, error) {
+func (r *RedisStorage) GetPremiumTime(userId int) (int, error) {
 	result := r.db.Get(ctx, fmt.Sprintf("tg:premium:%v", userId))
 	if result.Err() == redis.Nil {
 		return -1, nil
@@ -55,7 +54,7 @@ func (r RedisStorage) GetPremiumTime(userId int) (int, error) {
 	return time, nil
 }
 
-func (r RedisStorage) IncrementPremiumTime(userId, duration int) (int, error) {
+func (r *RedisStorage) IncrementPremiumTime(userId, duration int) (int, error) {
 	result := r.db.IncrBy(ctx, fmt.Sprintf("tg:premium:%v", userId), int64(duration))
 	if result.Err() != nil {
 		return 0, result.Err()
@@ -63,12 +62,12 @@ func (r RedisStorage) IncrementPremiumTime(userId, duration int) (int, error) {
 	return int(result.Val()), nil
 }
 
-func (r RedisStorage) SavePremiumUser(userId int) error {
+func (r *RedisStorage) SavePremiumUser(userId int) error {
 	status := r.db.Set(ctx, fmt.Sprintf("tg:premium:%v", userId), 0, time.Duration(monthDuration.Seconds()))
 	return status.Err()
 }
 
-func (r RedisStorage) IsPremium(userId int) (int, error) {
+func (r *RedisStorage) IsPremium(userId int) (int, error) {
 	result := r.db.Get(ctx, fmt.Sprintf("tg:premium:%v", userId))
 	if result.Err() == redis.Nil {
 		return 0, nil
@@ -79,7 +78,7 @@ func (r RedisStorage) IsPremium(userId int) (int, error) {
 	return 1, nil
 }
 
-func (r RedisStorage) GetUnpremiumTime(userId int) (int, error) {
+func (r *RedisStorage) GetUnpremiumTime(userId int) (int, error) {
 	result := r.db.Get(ctx, fmt.Sprintf("tg:unpremium:time:%v", userId))
 	// if user doesn't exists
 	if result.Err() == redis.Nil {
