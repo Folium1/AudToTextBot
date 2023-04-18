@@ -2,63 +2,15 @@ package config
 
 import (
 	"context"
-	"database/sql"
 
 	"fmt"
 	"log"
 	"os"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
-
-// MySQLConfig represents the configuration for the MySQL database
-type MySQLConfig struct {
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
-}
-
-// NewMySQLConfig creates a new MySQL configuration object from environment variables
-func NewMysqlConfig() *MySQLConfig {
-	return &MySQLConfig{
-		DBHost:     os.Getenv("MYSQL_HOST"),
-		DBPort:     os.Getenv("MYSQL_PORT"),
-		DBUser:     os.Getenv("MYSQL_USER"),
-		DBPassword: os.Getenv("MYSQL_PASSWORD"),
-		DBName:     os.Getenv("MYSQL_NAME"),
-	}
-}
-
-// ConnectToMySQL connects to the MySQL database using the instance parameters
-func (c *MySQLConfig) ConnectToMySQL() (*sql.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName)
-
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to MySQL: %v", err)
-	}
-	defer db.Close()
-
-	// Check if the database is responsive
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
-		return nil, fmt.Errorf("failed to ping MySQL: %v", err)
-	}
-
-	_, err = db.Exec("CREATE TABLE scripts(file_name VARCHAR(100),duration INT,user_id BIGINT,script TEXT(10000));")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create scripts table: %v", err)
-	}
-
-	log.Printf("Connected to MySQL at %s:%s/%s", c.DBHost, c.DBPort, c.DBName)
-	return db, nil
-}
 
 // RedisConfig represents the configuration for the Redis server
 type RedisConfig struct {
