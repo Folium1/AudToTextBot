@@ -39,7 +39,7 @@ func NewStorage() (*RedisStorage, error) {
 	}, nil
 }
 
-func (r *RedisStorage) GetPremiumTime(userId int) (int, error) {
+func (r RedisStorage) GetPremiumTime(userId int) (int, error) {
 	result := r.db.Get(ctx, fmt.Sprintf("tg:time:premium:%v", userId))
 	if result.Err() == redis.Nil {
 		return -1, nil
@@ -54,7 +54,7 @@ func (r *RedisStorage) GetPremiumTime(userId int) (int, error) {
 	return time, nil
 }
 
-func (r *RedisStorage) IncrementPremiumTime(userId, duration int) (int, error) {
+func (r RedisStorage) IncrementPremiumTime(userId, duration int) (int, error) {
 	result := r.db.IncrBy(ctx, fmt.Sprintf("tg:time:premium:%v", userId), int64(duration))
 	if result.Err() != nil {
 		return 0, result.Err()
@@ -62,8 +62,8 @@ func (r *RedisStorage) IncrementPremiumTime(userId, duration int) (int, error) {
 	return int(result.Val()), nil
 }
 
-func (r *RedisStorage) SavePremiumUser(userId int) error {
-	status := r.db.Set(ctx, fmt.Sprintf("tg:time:premium:%v", userId), 0, time.Duration(monthDuration.Seconds()))
+func (r RedisStorage) SavePremiumUser(userId int) error {
+	status := r.db.Set(ctx, fmt.Sprintf("tg:time:premium:%v", userId), 0, monthDuration)
 	if status.Err() != nil {
 		return status.Err()
 	}
@@ -74,7 +74,7 @@ func (r *RedisStorage) SavePremiumUser(userId int) error {
 	return err
 }
 
-func (r *RedisStorage) IsPremium(userId int) (int, error) {
+func (r RedisStorage) IsPremium(userId int) (int, error) {
 	result := r.db.Get(ctx, fmt.Sprintf("tg:time:premium:%v", userId))
 	if result.Err() == redis.Nil {
 		return 0, nil
@@ -85,7 +85,7 @@ func (r *RedisStorage) IsPremium(userId int) (int, error) {
 	return 1, nil
 }
 
-func (r *RedisStorage) GetUnpremiumTime(userId int) (int, error) {
+func (r RedisStorage) GetUnpremiumTime(userId int) (int, error) {
 	result := r.db.Get(ctx, fmt.Sprintf("tg:time:unpremium:%v", userId))
 	// if user doesn't exists
 	if result.Err() == redis.Nil {
@@ -101,7 +101,7 @@ func (r *RedisStorage) GetUnpremiumTime(userId int) (int, error) {
 	return time, nil
 }
 
-func (r *RedisStorage) SaveUnpremiumUser(userId int) error {
+func (r RedisStorage) SaveUnpremiumUser(userId int) error {
 	err := r.db.Set(ctx, fmt.Sprintf("tg:time:unpremium:%v", userId), 0, monthDuration).Err()
 	if err != nil {
 		return err
@@ -113,11 +113,11 @@ func (r *RedisStorage) SaveUnpremiumUser(userId int) error {
 	return nil
 }
 
-func (r *RedisStorage) IncrementUnpremiumTime(userId, audioDuration int) (int, error) {
+func (r RedisStorage) IncrementUnpremiumTime(userId, audioDuration int) (int, error) {
 	time, err := r.db.IncrBy(ctx, fmt.Sprintf("tg:time:unpremium:%v", userId), int64(audioDuration)).Result()
 	if err != nil {
 		return 0, err
 	}
-	log.Printf("IncrementUnpremiumTime: %v", time)
+	log.Printf("IncrementUnpremiumTime for user %v by %v seconds", userId, time)
 	return int(time), nil
 }
