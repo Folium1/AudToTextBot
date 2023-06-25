@@ -18,10 +18,6 @@ var (
 )
 
 func decodeFile(file_url string) (string, error) {
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	log.Fatalf("Error loading .env file: %v", err)
-	// }
 	log.Println("Started to decode")
 	transcr := transcribe(file_url)
 	filetext := poll(transcr)
