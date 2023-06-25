@@ -8,29 +8,22 @@ import (
 	service "tgbot/service"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/joho/godotenv"
 )
 
 var (
+	redisService        = service.NewRedisService()
 	UserCallBackCh      = make(chan string)
 	allowedAudioFormats = []string{".3ga", ".8svx", ".aac", ".ac3", ".aif", ".aiff", ".alac", ".amr", ".ape", ".au", ".dss", ".flac", ".flv", ".m4a", ".m4b", ".m4p", ".m4r", ".mp3", ".mpga", ".ogg", ".oga", ".mogg", ".opus", ".qcp", ".tta", ".vocn", ".wavn", ".wma", ".wv"}
-	commandsMap         = map[string]func(*tgbotapi.BotAPI, tgbotapi.Update, *service.RedisService){
+	commandsMap         = map[string]func(*tgbotapi.BotAPI, tgbotapi.Update){
 		"/start":      handleStart,
 		"/premium":    handlePremium,
 		"/list":       handleList,
 		"/getPremium": getPremium,
+		"/status":     checkStatus,
 	}
 )
 
 func StartBot() {
-	redisService, err := service.NewRedisService()
-	if err != nil {
-		log.Println(err)
-	}
-	err = godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
 	botToken := os.Getenv("BOT_TOKEN")
 	bot, err := tgbotapi.NewBotAPI(botToken)
 	if err != nil {
@@ -57,7 +50,7 @@ func StartBot() {
 	for i := 0; i < runtime.NumCPU(); i++ {
 		go func() {
 			for update := range updateChannel {
-				go handleUpdate(bot, update, redisService)
+				go handleUpdate(bot, update)
 			}
 		}()
 	}
@@ -65,7 +58,7 @@ func StartBot() {
 	}
 }
 
-func handleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *service.RedisService) {
+func handleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	msg := tgbotapi.MessageConfig{}
 	if update.Message != nil {
 		msg.ChatID = update.Message.Chat.ID
@@ -76,12 +69,12 @@ func handleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *se
 	case update.Message == nil:
 		return
 	case update.Message.Audio != nil:
-		handleAudio(bot, update, update.Message.Audio, redisService)
+		handleAudio(bot, update)
 	case update.Message.Voice != nil:
-		handleVoice(bot, update, update.Message.Voice, redisService)
+		handleVoice(bot, update)
 	default:
 		if command, ok := commandsMap[update.Message.Text]; ok {
-			command(bot, update, redisService)
+			command(bot, update)
 		} else {
 			sendMessage(bot, update.Message.Chat.ID, "Invalid message")
 		}

@@ -11,7 +11,6 @@ import (
 	"os"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/joho/godotenv"
 )
 
 var (
@@ -19,10 +18,10 @@ var (
 )
 
 func decodeFile(file_url string) (string, error) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
+	// err := godotenv.Load()
+	// if err != nil {
+	// 	log.Fatalf("Error loading .env file: %v", err)
+	// }
 	log.Println("Started to decode")
 	transcr := transcribe(file_url)
 	filetext := poll(transcr)
@@ -54,7 +53,10 @@ func poll(id string) string {
 func transcribe(file_url string) string {
 	var asseblyApiKey = os.Getenv("ASSEMBLY_API_KEY")
 	// prepare json data
-	values := map[string]string{"audio_url": file_url}
+	values := map[string]string{
+		"audio_url":          file_url,
+		"language_detection": "true",
+	}
 	jsonData, _ := json.Marshal(values)
 
 	// setup HTTP client and set header
@@ -118,6 +120,5 @@ func uploadUserFileData(bot *tgbotapi.BotAPI, fileID string) (string, error) {
 	json.NewDecoder(res.Body).Decode(&result)
 
 	file_url := fmt.Sprintf("%v", result["upload_url"])
-	fmt.Println(file_url)
 	return file_url, nil
 }

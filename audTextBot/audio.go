@@ -4,24 +4,25 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"tgbot/service"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 const (
-	unpremiumMaxAudioDuration = 480 // maximum allowed audio duration for non-premium users (in seconds)
+	unpremiumMaxAudioDuration = 300  // maximum allowed audio duration for non-premium users (in seconds)
+	premiumMaxAudioDuration   = 3600 // maximum allowed audio duration for premium users (in seconds)
+	maxMessageLength          = 4000
 )
 
-func handleAudio(bot *tgbotapi.BotAPI, update tgbotapi.Update, audio *tgbotapi.Audio, redisService *service.RedisService) {
+func handleAudio(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	msg := tgbotapi.MessageConfig{}
 	msg.ChatID = update.Message.Chat.ID
 
 	// Check if user is premium
-	isPremium := isPremium(bot, update.Message.From.ID, update.Message.Chat.ID, redisService)
+	isPremium := isPremium(bot, update.Message.From.ID, update.Message.Chat.ID)
 
 	// Check if audio duration is allowed
-	err := isAudioDurationAllowed(update.Message.Audio.Duration, update.Message.From.ID, update.Message.From.FirstName, isPremium, redisService)
+	err := isAudioDurationAllowed(update.Message.Audio.Duration, update.Message.From.ID, update.Message.From.FirstName, isPremium)
 	if err != nil {
 		sendMessage(bot, update.Message.Chat.ID, err.Error())
 		return
@@ -31,13 +32,22 @@ func handleAudio(bot *tgbotapi.BotAPI, update tgbotapi.Update, audio *tgbotapi.A
 	sendMessage(bot, update.Message.Chat.ID, fmt.Sprintf("Decoding will take from 15%% to 30%% of file duration if it is not too short"))
 
 	// Decode audio file
-	text, err := decodeAudioFile(bot, update.Message.Audio.FileID, redisService)
+	text, err := decodeAudioFile(bot, update.Message.Audio.FileID)
 	if err != nil {
 		log.Println(err)
 		sendMessage(bot, update.Message.Chat.ID, "There was an error decoding the file")
 		return
 	}
-	sendMessage(bot, update.Message.Chat.ID, fmt.Sprintf("Here is the script of your audio:\n\n%v", text))
+
+	// Paginate text into messages
+	chunks := paginateText(text, maxMessageLength)
+
+	sendMessage(bot, update.Message.Chat.ID, "Here is the script of the audio:")
+	// Send each message chunk
+	for _, chunk := range chunks {
+		sendMessage(bot, update.Message.Chat.ID, chunk)
+	}
+
 	if !isPremium {
 		// Add time spent to redis
 		timeSpent, err := redisService.IncrementUnpremiumTime(update.Message.From.ID, update.Message.Audio.Duration)
@@ -49,11 +59,36 @@ func handleAudio(bot *tgbotapi.BotAPI, update tgbotapi.Update, audio *tgbotapi.A
 		minutes := remainingTime / 60
 		seconds := remainingTime % 60
 		sendMessage(bot, update.Message.Chat.ID, fmt.Sprintf("Remaining free time: %02d minutes %02d seconds", minutes, seconds))
+		return
 	}
+	timeSpent, err := redisService.IcrementPremiumTime(update.Message.From.ID, update.Message.Audio.Duration)
+	if err != nil {
+		log.Println(err)
+	}
+	remainingTime := premiumMaxAudioDuration - timeSpent
+	minutes := remainingTime / 60
+	seconds := remainingTime % 60
+	sendMessage(bot, update.Message.Chat.ID, fmt.Sprintf("Remaining free time: %02d minutes %02d seconds", minutes, seconds))
+}
+
+func paginateText(text string, chunkSize int) []string {
+	var chunks []string
+	runes := []rune(text)
+
+	for i := 0; i < len(runes); i += chunkSize {
+		end := i + chunkSize
+		if end > len(runes) {
+			end = len(runes)
+		}
+		chunk := string(runes[i:end])
+		chunks = append(chunks, chunk)
+	}
+
+	return chunks
 }
 
 // isAudioDurationAllowed checks if audio duration is allowed for user
-func isAudioDurationAllowed(audioDuration int, userId int, userName string, isPremium bool, redisService *service.RedisService) error {
+func isAudioDurationAllowed(audioDuration int, userId int, userName string, isPremium bool) error {
 	if isPremium {
 		return nil
 	}
@@ -85,7 +120,7 @@ func isAudioDurationAllowed(audioDuration int, userId int, userName string, isPr
 }
 
 // decodeAudioFile decodes audio file to text
-func decodeAudioFile(bot *tgbotapi.BotAPI, fileID string, redisService *service.RedisService) (string, error) {
+func decodeAudioFile(bot *tgbotapi.BotAPI, fileID string) (string, error) {
 	// Get audio file
 	fileURL, err := uploadUserFileData(bot, fileID)
 	if err != nil {
@@ -100,14 +135,14 @@ func decodeAudioFile(bot *tgbotapi.BotAPI, fileID string, redisService *service.
 	return text, nil
 }
 
-func handleVoice(bot *tgbotapi.BotAPI, update tgbotapi.Update, voice *tgbotapi.Voice, redisService *service.RedisService) {
+func handleVoice(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	msg := tgbotapi.MessageConfig{}
 	msg.ChatID = update.Message.Chat.ID
 	// Check if user is premium
-	isPremium := isPremium(bot, update.Message.From.ID, update.Message.Chat.ID, redisService)
+	isPremium := isPremium(bot, update.Message.From.ID, update.Message.Chat.ID)
 
 	// Check if voice duration is allowed
-	err := isAudioDurationAllowed(update.Message.Voice.Duration, update.Message.From.ID, update.Message.From.FirstName, isPremium, redisService)
+	err := isAudioDurationAllowed(update.Message.Voice.Duration, update.Message.From.ID, update.Message.From.FirstName, isPremium)
 	if err != nil {
 		sendMessage(bot, update.Message.Chat.ID, err.Error())
 		return
@@ -117,15 +152,21 @@ func handleVoice(bot *tgbotapi.BotAPI, update tgbotapi.Update, voice *tgbotapi.V
 	sendMessage(bot, update.Message.Chat.ID, fmt.Sprintf("Decoding will take from 15%% to 30%% of file duration if it is not too short"))
 
 	// Decode voice file
-	text, err := decodeAudioFile(bot, update.Message.Voice.FileID, redisService)
+	text, err := decodeAudioFile(bot, update.Message.Voice.FileID)
 	if err != nil {
 		log.Println(err)
 		sendMessage(bot, update.Message.Chat.ID, "There was an error decoding the file")
 		return
 	}
+	// Paginate text into messages
+	chunks := paginateText(text, maxMessageLength)
 
-	// Send decoded text to user
-	sendMessage(bot, update.Message.Chat.ID, fmt.Sprintf("Here is the script of your voice:\n\n%v", text))
+	sendMessage(bot, update.Message.Chat.ID, "Here is the script of the voice message:")
+	// Send each message chunk
+	for _, chunk := range chunks {
+		sendMessage(bot, update.Message.Chat.ID, chunk)
+	}
+
 	if !isPremium {
 		// Add time spent to redis
 		timeSpent, err := redisService.IncrementUnpremiumTime(update.Message.From.ID, update.Message.Voice.Duration)
@@ -137,5 +178,15 @@ func handleVoice(bot *tgbotapi.BotAPI, update tgbotapi.Update, voice *tgbotapi.V
 		minutes := remainingTime / 60
 		seconds := remainingTime % 60
 		sendMessage(bot, update.Message.Chat.ID, fmt.Sprintf("Remaining free time: %02d minutes %02d seconds", minutes, seconds))
+		return
 	}
+
+	timeSpent, err := redisService.IcrementPremiumTime(update.Message.From.ID, update.Message.Voice.Duration)
+	if err != nil {
+		log.Println(err)
+	}
+	remainingTime := premiumMaxAudioDuration - timeSpent
+	minutes := remainingTime / 60
+	seconds := remainingTime % 60
+	sendMessage(bot, update.Message.Chat.ID, fmt.Sprintf("Remaining free time: %02d minutes %02d seconds", minutes, seconds))
 }

@@ -2,13 +2,12 @@ package audTextBot
 
 import (
 	"log"
-	"tgbot/service"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 // isPremium checks if user is premium
-func isPremium(bot *tgbotapi.BotAPI, userId int, chatID int64, redisService *service.RedisService) bool {
+func isPremium(bot *tgbotapi.BotAPI, userId int, chatID int64) bool {
 	isPremium, err := redisService.IsPremium(userId)
 	if err != nil {
 		log.Println(err)
@@ -18,8 +17,18 @@ func isPremium(bot *tgbotapi.BotAPI, userId int, chatID int64, redisService *ser
 	return isPremium
 }
 
+func checkStatus(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
+	userId := update.Message.From.ID
+	premium := isPremium(bot, userId, update.Message.Chat.ID)
+	if premium {
+		sendMessage(bot, update.Message.Chat.ID, "You are already premium user")
+	} else {
+		sendMessage(bot, update.Message.Chat.ID, "You are NOT premium user")
+	}
+}
+
 // handlePremium handles the /premium command
-func handlePremium(bot *tgbotapi.BotAPI, update tgbotapi.Update, redisService *service.RedisService) {
+func handlePremium(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 	isPremium, err := redisService.IsPremium(update.Message.From.ID)
 	if err != nil {
