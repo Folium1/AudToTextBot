@@ -2,12 +2,13 @@ package service
 
 import (
 	"errors"
+	"log"
 	"tgbot/storage"
 )
 
 const (
-	PremiumMaxTime     = 3600
-	UnpremiumMaxTime   = 480
+	PremiumMaxTime   = 3600
+	UnpremiumMaxTime = 300
 )
 
 var (
@@ -19,17 +20,17 @@ type RedisService struct {
 	storage storage.RedisStorage
 }
 
-func NewRedisService() (*RedisService, error) {
+func NewRedisService() *RedisService {
 	redisStorage, err := storage.NewStorage()
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 	return &RedisService{
 		storage: *redisStorage,
-	}, nil
+	}
 }
 
-func (rs *RedisService) IcrementPremiumTime(userId, duration int) (int, error) {
+func (rs RedisService) IcrementPremiumTime(userId, duration int) (int, error) {
 	time, err := rs.storage.IncrementPremiumTime(userId, duration)
 	if err != nil {
 		return 0, err
@@ -40,7 +41,7 @@ func (rs *RedisService) IcrementPremiumTime(userId, duration int) (int, error) {
 	return time, nil
 }
 
-func (rs *RedisService) GetPremiumTime(userId int) (int, error) {
+func (rs RedisService) GetPremiumTime(userId int) (int, error) {
 	time, err := rs.storage.GetPremiumTime(userId)
 	if err != nil {
 		return 0, err
@@ -48,7 +49,7 @@ func (rs *RedisService) GetPremiumTime(userId int) (int, error) {
 	return time, nil
 }
 
-func (rs *RedisService) SaveUnpremiumUser(userId int) error {
+func (rs RedisService) SaveUnpremiumUser(userId int) error {
 	err := rs.storage.SaveUnpremiumUser(userId)
 	if err != nil {
 		return err
@@ -56,11 +57,12 @@ func (rs *RedisService) SaveUnpremiumUser(userId int) error {
 	return nil
 }
 
-func (rs *RedisService) SavePremiumUser(userId int) error {
+func (rs RedisService) SavePremiumUser(userId int) error {
+	log.Println(userId)
 	return rs.storage.SavePremiumUser(userId)
 }
 
-func (rs *RedisService) IsPremium(userId int) (bool, error) {
+func (rs RedisService) IsPremium(userId int) (bool, error) {
 	isPremium, err := rs.storage.IsPremium(userId)
 	if err != nil {
 		return false, err
@@ -68,7 +70,7 @@ func (rs *RedisService) IsPremium(userId int) (bool, error) {
 	return isPremium == 1, nil
 }
 
-func (rs *RedisService) GetUnpremiumTimeSpent(userId int) (int, error) {
+func (rs RedisService) GetUnpremiumTimeSpent(userId int) (int, error) {
 	timeSpent, err := rs.storage.GetUnpremiumTime(userId)
 	if err != nil {
 		return 0, err
@@ -82,7 +84,7 @@ func (rs *RedisService) GetUnpremiumTimeSpent(userId int) (int, error) {
 	return timeSpent, nil
 }
 
-func (rs *RedisService) IncrementUnpremiumTime(userId int, audioDuration int) (int, error) {
+func (rs RedisService) IncrementUnpremiumTime(userId int, audioDuration int) (int, error) {
 	time, err := rs.storage.IncrementUnpremiumTime(userId, audioDuration)
 	if err != nil {
 		return 0, err
