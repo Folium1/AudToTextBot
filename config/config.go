@@ -14,9 +14,7 @@ import (
 
 // RedisConfig represents the configuration for the Redis server
 type RedisConfig struct {
-	Addr     string
-	Password string
-	DB       int
+	Addr string
 }
 
 // NewRedisConfig creates a new Redis configuration object from environment variables
@@ -27,18 +25,14 @@ func NewRedisConfig() *RedisConfig {
 	}
 
 	return &RedisConfig{
-		Addr:     os.Getenv("REDIS_ADDR"),
-		Password: os.Getenv("REDIS_PASSWORD"),
-		DB:       0,
+		Addr: os.Getenv("REDIS_ADDR"),
 	}
 }
 
 // ConnectToRedis connects to the Redis server using the configuration parameters
 func (c *RedisConfig) ConnectToRedis() (*redis.Client, error) {
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     c.Addr,
-		Password: c.Password,
-		DB:       c.DB,
+		Addr: c.Addr,
 	})
 
 	// Check if the Redis server is responsive
@@ -48,7 +42,7 @@ func (c *RedisConfig) ConnectToRedis() (*redis.Client, error) {
 		return nil, fmt.Errorf("failed to ping Redis: %v", err)
 	}
 
-	log.Printf("Connected to Redis at %s:%d", c.Addr, c.DB)
+	log.Printf("Connected to Redis at %s", c.Addr)
 	return redisClient, nil
 }
 
@@ -67,9 +61,7 @@ func NewRedisServiceConfig() *RedisServiceConfig {
 // NewRedisClient initializes a new Redis client using the Redis configuration parameters
 func (c *RedisServiceConfig) NewRedisClient() (*redis.Client, error) {
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     c.RedisConfig.Addr,
-		Password: c.RedisConfig.Password,
-		DB:       c.RedisConfig.DB,
+		Addr: c.RedisConfig.Addr,
 	})
 
 	// Check if the Redis server is responsive
@@ -79,6 +71,6 @@ func (c *RedisServiceConfig) NewRedisClient() (*redis.Client, error) {
 		return nil, fmt.Errorf("failed to ping Redis: %v", err)
 	}
 
-	log.Printf("Connected to Redis at %s:%d", c.RedisConfig.Addr, c.RedisConfig.DB)
+	log.Printf("Connected to Redis at %s", c.RedisConfig.Addr)
 	return redisClient, nil
 }
