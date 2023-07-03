@@ -9,7 +9,7 @@ Before starting the bot, make sure you have the following:
 - Golang (version 1.20.5)
 - An API token for your Telegram bot. If you don't have one, you can obtain it by creating a new bot using the Telegram BotFather. Refer to the official Telegram documentation on how to create a bot: [https://core.telegram.org/bots#3-how-do-i-create-a-bot](https://core.telegram.org/bots#3-how-do-i-create-a-bot)
 - AssemblyAI API key for getting scripts from audios. You can get it here: [https://www.assemblyai.com](https://www.assemblyai.com)
-- Redis server
+- Docker
 
 ## How to Start
 
