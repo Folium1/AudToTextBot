@@ -17,5 +17,5 @@ Before starting the bot, make sure you have the following:
 2. Run the following commands in the terminal:
 ```
 make build
-make compose
+make run
 ```
