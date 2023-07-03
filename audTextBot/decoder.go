@@ -37,7 +37,7 @@ func poll(id string) string {
 	for result["status"] != "completed" {
 		res, err := client.Do(req)
 		if err != nil {
-			log.Fatalln(err)
+			log.Println(err)
 		}
 		defer res.Body.Close()
 		json.NewDecoder(res.Body).Decode(&result)
@@ -59,13 +59,13 @@ func transcribe(file_url string) string {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", transcript_url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 	req.Header.Set("content-type", "application/json")
 	req.Header.Set("authorization", asseblyApiKey)
 	res, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 	defer res.Body.Close()
 
@@ -108,7 +108,7 @@ func uploadUserFileData(bot *tgbotapi.BotAPI, fileID string) (string, error) {
 	req.Header.Set("authorization", ASSEMBLY_asseblyApiKey)
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 
 	// decode json and store it in a map
